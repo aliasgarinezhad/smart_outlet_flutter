@@ -1,72 +1,17 @@
+import 'dart:convert';
+import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-
 import 'Device.dart';
+import 'addNewPage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'deviceSettingPage.dart';
 
 var uiList = <Device>{};
 
 void main() {
-  loadMemory();
   runApp(const App());
-}
-
-class SecondPage extends StatefulWidget {
-  const SecondPage({Key? key}) : super(key: key);
-
-  @override
-  State<SecondPage> createState() => _SecondPageState();
-}
-
-class _SecondPageState extends State<SecondPage> {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-        appBar: AppBar(
-          title: const Text("اضافه کردن دستگاه جدید"),
-          centerTitle: true,
-        ),
-        body: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-              child: const TextField(
-                  decoration: InputDecoration(
-                      labelText: "شماره سریال پریز را وارد کنید",
-                      contentPadding: EdgeInsets.all(16),
-                      border: OutlineInputBorder(
-                          borderRadius:
-                              BorderRadius.all(Radius.circular(20))))),
-            ),
-            Container(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-              child: const TextField(
-                  decoration: InputDecoration(
-                      labelText: "رمز عبور پریز را وارد کنید",
-                      contentPadding: EdgeInsets.all(16),
-                      border: OutlineInputBorder(
-                          borderRadius:
-                              BorderRadius.all(Radius.circular(20))))),
-            ),
-            Container(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-              child: const TextField(
-                  decoration: InputDecoration(
-                      labelText: "نام دستگاه را وارد کنید (مانند کولر)",
-                      contentPadding: EdgeInsets.all(16),
-                      border: OutlineInputBorder(
-                          borderRadius:
-                              BorderRadius.all(Radius.circular(20))))),
-            ),
-            Container(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                child: ElevatedButton(
-                  onPressed: () {},
-                  style: ElevatedButton.styleFrom(shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(20)))),
-                  child: const Text("افزودن"),
-                ))
-          ],
-        ));
-  }
 }
 
 class FirstPage extends StatefulWidget {
@@ -77,8 +22,25 @@ class FirstPage extends StatefulWidget {
 }
 
 class _FirstPageState extends State<FirstPage> {
+
+  void loadMemory() async {
+    SharedPreferences memory = await SharedPreferences.getInstance();
+    uiList.clear();
+    var uiListString = memory.getStringList('uiList');
+    if (uiListString != null) {
+      setState(() {
+        for (var element in uiListString) {
+          var deviceJson = jsonDecode(element);
+          uiList.add(Device(deviceJson['serialNumber'], deviceJson['password'],
+              deviceJson['name'], deviceJson['status']));
+        }
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    loadMemory();
     return Scaffold(
       appBar: AppBar(
         title: const Text("لیست دستگاه ها"),
@@ -87,10 +49,7 @@ class _FirstPageState extends State<FirstPage> {
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const SecondPage()),
-          );
+          Navigator.pushNamed(context, "AddNewDevice");
         },
         label: const Text("اضافه کردن دستگاه جدید",
             style: TextStyle(letterSpacing: 0)),
@@ -108,12 +67,19 @@ class _FirstPageState extends State<FirstPage> {
                 child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text("نام: ${uiList.elementAt(i).name}"),
+                      Text("نام: ${uiList
+                          .elementAt(i)
+                          .name}"),
                       Text("وضعیت: ${uiList.elementAt(i).getStatusString()}"),
                       Switch(
-                          value: uiList.elementAt(i).status,
+                          value: uiList
+                              .elementAt(i)
+                              .status,
                           onChanged: (status) {
-                            uiList.elementAt(i).status = status;
+                            uiList
+                                .elementAt(i)
+                                .status = status;
+                            saveToMemory();
                             setState(() {});
                           })
                     ]),
@@ -121,11 +87,6 @@ class _FirstPageState extends State<FirstPage> {
       ]),
     );
   }
-}
-
-void loadMemory() {
-  uiList.add(Device("23458534", "9756", "کولر", false));
-  uiList.add(Device("23458534", "9756", "کولر", false));
 }
 
 class App extends StatelessWidget {
@@ -142,7 +103,7 @@ class App extends StatelessWidget {
       supportedLocales: const [
         Locale("fa", "IR"),
       ],
-      title: 'Flutter Demo',
+      title: 'Smart outlet',
       theme: ThemeData(
           primaryColor: const Color(0xFF4aa3df),
           backgroundColor: const Color(0xFFecf5fb),
@@ -150,6 +111,11 @@ class App extends StatelessWidget {
           fontFamily: 'sans'),
       home: const FirstPage(),
       debugShowCheckedModeBanner: false,
+      routes: {
+        'Main': (context) => const FirstPage(),
+        'AddNewDevice': (context) => const SecondPage(),
+        'DeviceSetting': (context) => const ThirdPage(),
+      },
     );
   }
 }
