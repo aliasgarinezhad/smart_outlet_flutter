@@ -1,11 +1,14 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'dart:convert';
-import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'Device.dart';
-import 'addNewPage.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'Device.dart';
+import 'addNewPage.dart';
 import 'deviceSettingPage.dart';
 
 var uiList = <Device>{};
@@ -22,7 +25,6 @@ class FirstPage extends StatefulWidget {
 }
 
 class _FirstPageState extends State<FirstPage> {
-
   void loadMemory() async {
     SharedPreferences memory = await SharedPreferences.getInstance();
     uiList.clear();
@@ -41,6 +43,42 @@ class _FirstPageState extends State<FirstPage> {
   @override
   Widget build(BuildContext context) {
     loadMemory();
+
+    void turnOnOff(int i, bool status) async {
+
+      String statusString;
+
+      if(status) {
+        statusString = '1';
+      } else {
+        statusString = '0';
+      }
+      Map<String, String> body = {
+        'serialNumber': uiList.elementAt(i).serialNumber,
+        'password': uiList.elementAt(i).password,
+        'status': statusString
+      };
+
+      var response = await http.post(
+        Uri.parse("http://mamatirnoavar.ir/switchs/setDeviceParameters.php"),
+        body: body,
+      );
+
+      if(response.body.contains("1000")) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text("شماره سریال یا رمز عبور دستگاه اشتباه است.")));
+      } else if(response.body.contains("2000")) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text("فرمان با موفقیت ارسال شد.")));
+        uiList.elementAt(i).status = status;
+        saveToMemory();
+        setState(() {});
+      } else if(response.body.contains("3000")) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text("مشکلی در سرور پیش آمده است. لطفا دوباره امتحان کنید.")));
+      }
+    }
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text("لیست دستگاه ها"),
@@ -67,20 +105,12 @@ class _FirstPageState extends State<FirstPage> {
                 child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text("نام: ${uiList
-                          .elementAt(i)
-                          .name}"),
+                      Text("نام: ${uiList.elementAt(i).name}"),
                       Text("وضعیت: ${uiList.elementAt(i).getStatusString()}"),
                       Switch(
-                          value: uiList
-                              .elementAt(i)
-                              .status,
+                          value: uiList.elementAt(i).status,
                           onChanged: (status) {
-                            uiList
-                                .elementAt(i)
-                                .status = status;
-                            saveToMemory();
-                            setState(() {});
+                            turnOnOff(i, status);
                           })
                     ]),
               ))

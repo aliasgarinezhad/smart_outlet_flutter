@@ -1,10 +1,11 @@
-import 'dart:convert';
+// ignore_for_file: use_build_context_synchronously
 
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
 import 'Device.dart';
 import 'main.dart';
+import 'package:http/http.dart' as http;
 
 String serialNumber = "";
 String password = "";
@@ -27,11 +28,6 @@ void saveToMemory() async {
   await memory.setStringList('uiList', uiListStringArray);
 }
 
-void addNewDevice() {
-  uiList.add(Device(serialNumber, password, name, false));
-  saveToMemory();
-}
-
 class SecondPage extends StatefulWidget {
   const SecondPage({Key? key}) : super(key: key);
 
@@ -42,6 +38,76 @@ class SecondPage extends StatefulWidget {
 class _SecondPageState extends State<SecondPage> {
   @override
   Widget build(BuildContext context) {
+
+    showAlertDialog(BuildContext context) {
+
+      // set up the buttons
+      Widget cancelButton = TextButton(
+        child: const Text("خیر، ورود به تنظیمات دستگاه"),
+        onPressed:  () {
+          Navigator.pushNamed(context, "DeviceSetting");
+        },
+      );
+      Widget continueButton = TextButton(
+        child: const Text("بله"),
+        onPressed:  () {
+          Navigator.pushNamedAndRemoveUntil(
+              context, "Main", (r) => false);
+          },
+      );
+
+      // set up the AlertDialog
+      AlertDialog alert = AlertDialog(
+        content: const Text("آیا قبلا پریز را به اینترنت متصل کرده اید؟ در غیر این صورت وارد صفحه تنظیمات دستگاه شوید و نام و رمز عبور مودم خانگی تان را برای دستگاه تعریف کنید."),
+        actions: [
+          continueButton,
+          cancelButton,
+        ],
+      );
+
+      // show the dialog
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return alert;
+        },
+      );
+    }
+
+    void addNewDevice(String serialNumber, String password, String name) async {
+
+      Map<String, String> body = {
+        'serialNumber': serialNumber,
+        'password': password,
+      };
+
+      try {
+        var response = await http.post(
+          Uri.parse("http://mamatirnoavar.ir/switchs/checkSerialNumberPassword.php"),
+          body: body,
+        );
+
+        if(response.body.contains("1000")) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text("شماره سریال یا رمز عبور اشتباه است.")));
+        } else if(response.body.contains("2000")) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text("با موفقیت اضافه شد.")));
+          uiList.add(Device(serialNumber, password, name, false));
+          saveToMemory();
+          showAlertDialog(context);
+        } else if(response.body.contains("3000")) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text("مشکلی در سرور پیش آمده است. لطفا دوباره امتحان کنید.")));
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text("اینترنت قطع است. لطفا اینترنت سیم کارت یا شبکه وای فای را فعال کنید.")));
+      }
+
+
+    }
+
     return Scaffold(
         appBar: AppBar(
           title: const Text("اضافه کردن دستگاه جدید"),
@@ -110,8 +176,7 @@ class _SecondPageState extends State<SecondPage> {
                           Text("لطفا نام دستگاه را وارد کنید.")));
                       return;
                     }
-                    addNewDevice();
-                    Navigator.pushNamed(context, "DeviceSetting");
+                    addNewDevice(serialNumber, password, name);
                   },
                   style: ElevatedButton.styleFrom(
                       shape: const RoundedRectangleBorder(
